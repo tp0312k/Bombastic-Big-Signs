@@ -1,3 +1,5 @@
 {
-  "parent": "bigsign:block/big_sign_board"
+  "textures": {
+    "particle": "bigsign:block/big_sign"
+  }
 }

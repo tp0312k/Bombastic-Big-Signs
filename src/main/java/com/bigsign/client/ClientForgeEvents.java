@@ -58,7 +58,10 @@ public final class ClientForgeEvents {
         event.setCanceled(true);
 
         if (level.getBlockEntity(event.getPos()) instanceof BigSignBlockEntity sign) {
-            Minecraft.getInstance().setScreen(new BigSignEditScreen(event.getPos(), sign.getCharacter()));
+            var textColor = sign.getFrontText().getColor();
+            Minecraft.getInstance().setScreen(new BigSignEditScreen(event.getPos(), sign.getCharacter(),
+                    textColor == null ? 0 : textColor.ordinal(),
+                    sign.getBoardColor(), sign.getFontId()));
         }
     }
 }

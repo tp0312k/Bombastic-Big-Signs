@@ -1,0 +1,5 @@
+{
+  "sources": [
+    { "type": "single", "resource": "bigsign:block/big_sign_white" }
+  ]
+}
