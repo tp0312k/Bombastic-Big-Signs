@@ -7,7 +7,7 @@ modId="bigsign"
 version="1.0.0"
 displayName="大字牌 (Big Sign)"
 description='''Adds a "大字牌" (big character sign). Place and break it just like a vanilla sign, but it holds exactly one Chinese character or one letter, rendered huge to fill the whole 16x16 face. Supports dye coloring and glow ink highlighting.'''
-authors=""
+authors="tp0312k"
 
 [[dependencies.bigsign]]
     modId="forge"
