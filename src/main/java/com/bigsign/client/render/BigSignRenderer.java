@@ -45,6 +45,9 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
     private static final float STANDING_TEXT_OFFSET = 0.51F;
     private static final float WALL_TEXT_OFFSET = -0.365F;
 
+    /** mod 内置自定义字体资源（assets/bigsign/font/*.json + 同名 .ttf）。 */
+    private static final java.util.Set<String> BUNDLED_FONTS = java.util.Set.of("rounded", "handwriting");
+
     private final Font font;
 
     public BigSignRenderer(BlockEntityRendererProvider.Context context) {
@@ -93,7 +96,14 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         DyeColor dye = entity.getFrontText().getColor();
         int color = dye != null ? (0xFF000000 | (dye.getTextColor() & 0xFFFFFF)) : 0xFF000000;
 
-        FormattedCharSequence sequence = FormattedCharSequence.forward(character, Style.EMPTY);
+        // 字体：空串/未知 id 走默认字体（Font 端对未知字体 id 自动回退，不会崩溃）
+        Style style = Style.EMPTY;
+        String fontId = entity.getFontId();
+        if (fontId != null && BUNDLED_FONTS.contains(fontId)) {
+            style = style.withFont(new ResourceLocation("bigsign", fontId));
+        }
+
+        FormattedCharSequence sequence = FormattedCharSequence.forward(character, style);
         boolean wide = character.codePointAt(0) > 0xFF;
 
         // unifont 全角字形（汉字等）为 16x16；放大 15% 后墨迹约占牌面 73%，为视觉主体。

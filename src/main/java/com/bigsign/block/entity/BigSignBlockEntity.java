@@ -17,7 +17,7 @@ public class BigSignBlockEntity extends SignBlockEntity {
     public static final int BOARD_ORIGINAL = -1;
 
     private int boardColor = BOARD_ORIGINAL;
-    /** 字体 id（占位字段，渲染器暂未实装，空串 = 默认）。 */
+    /** 字体 id（bigsign 内置字体资源，见 assets/bigsign/font/*.json，空串 = 默认）。 */
     private String fontId = "";
 
     public BigSignBlockEntity(BlockPos pos, BlockState state) {
