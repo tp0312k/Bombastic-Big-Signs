@@ -33,6 +33,10 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
      */
     private static final ResourceLocation BOARD_TEXTURE =
             new ResourceLocation("bigsign", "block/big_sign");
+    private static final ResourceLocation BOARD_BACK_TEXTURE =
+            new ResourceLocation("bigsign", "block/big_sign_back");
+    private static final ResourceLocation BOARD_SIDE_TEXTURE =
+            new ResourceLocation("bigsign", "block/big_sign_side");
 
     private static final float STANDING_TEXT_OFFSET = 0.51F;
     private static final float WALL_TEXT_OFFSET = -0.365F;
@@ -114,7 +118,9 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
      * 姿态由调用方先旋转好，因此 16 个 rotation 都能正确显示。
      */
     private void renderBoard(PoseStack pose, MultiBufferSource buffer, int packedLight) {
-        TextureAtlasSprite sprite = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_TEXTURE).sprite();
+        TextureAtlasSprite front = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_TEXTURE).sprite();
+        TextureAtlasSprite back = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_BACK_TEXTURE).sprite();
+        TextureAtlasSprite side = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_SIDE_TEXTURE).sprite();
         VertexConsumer vc = buffer.getBuffer(RenderType.cutout());
         PoseStack.Pose p = pose.last();
 
@@ -123,43 +129,43 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         float z0 = 0.375F, z1 = 0.5F;
         float e = 2.0F / 16.0F; // 侧边条宽 2px
 
-        // 正面（南，+z）
-        quad(p, vc, sprite, packedLight,
+        // 正面（南，+z）→ big_sign.png
+        quad(p, vc, front, packedLight,
                 x0, y0, z1, 0.0F, 1.0F,
                 x1, y0, z1, 1.0F, 1.0F,
                 x1, y1, z1, 1.0F, 0.0F,
                 x0, y1, z1, 0.0F, 0.0F,
                 0.0F, 0.0F, 1.0F);
-        // 背面（北，-z）
-        quad(p, vc, sprite, packedLight,
+        // 背面（北，-z）→ big_sign_back.png
+        quad(p, vc, back, packedLight,
                 x1, y0, z0, 0.0F, 1.0F,
                 x0, y0, z0, 1.0F, 1.0F,
                 x0, y1, z0, 1.0F, 0.0F,
                 x1, y1, z0, 0.0F, 0.0F,
                 0.0F, 0.0F, -1.0F);
-        // 东侧（+x）
-        quad(p, vc, sprite, packedLight,
+        // 东侧（+x）→ big_sign_side.png 左侧 2px 竖条
+        quad(p, vc, side, packedLight,
                 x1, y0, z1, 0.0F, 1.0F,
                 x1, y0, z0, e, 1.0F,
                 x1, y1, z0, e, 0.0F,
                 x1, y1, z1, 0.0F, 0.0F,
                 1.0F, 0.0F, 0.0F);
-        // 西侧（-x）
-        quad(p, vc, sprite, packedLight,
+        // 西侧（-x）→ big_sign_side.png 左侧 2px 竖条
+        quad(p, vc, side, packedLight,
                 x0, y0, z0, 0.0F, 1.0F,
                 x0, y0, z1, e, 1.0F,
                 x0, y1, z1, e, 0.0F,
                 x0, y1, z0, 0.0F, 0.0F,
                 -1.0F, 0.0F, 0.0F);
-        // 顶（+y）
-        quad(p, vc, sprite, packedLight,
+        // 顶（+y）→ big_sign_side.png 顶部 2px 横条
+        quad(p, vc, side, packedLight,
                 x0, y1, z1, 0.0F, e,
                 x1, y1, z1, 1.0F, e,
                 x1, y1, z0, 1.0F, 0.0F,
                 x0, y1, z0, 0.0F, 0.0F,
                 0.0F, 1.0F, 0.0F);
-        // 底（-y）
-        quad(p, vc, sprite, packedLight,
+        // 底（-y）→ big_sign_side.png 顶部 2px 横条
+        quad(p, vc, side, packedLight,
                 x0, y0, z0, 0.0F, 0.0F,
                 x1, y0, z0, 1.0F, 0.0F,
                 x1, y0, z1, 1.0F, e,

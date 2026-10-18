@@ -1,19 +1,21 @@
 {
   "textures": {
     "particle": "bigsign:block/big_sign",
-    "texture": "bigsign:block/big_sign"
+    "front": "bigsign:block/big_sign",
+    "back": "bigsign:block/big_sign_back",
+    "side": "bigsign:block/big_sign_side"
   },
   "elements": [
     {
       "from": [0, 0, 14],
       "to": [16, 16, 16],
       "faces": {
-        "down":  { "uv": [0, 0, 16, 2],  "texture": "#texture" },
-        "up":    { "uv": [0, 0, 16, 2],  "texture": "#texture" },
-        "north": { "uv": [0, 0, 16, 16], "texture": "#texture" },
-        "south": { "uv": [0, 0, 16, 16], "texture": "#texture" },
-        "west":  { "uv": [0, 0, 2, 16],  "texture": "#texture" },
-        "east":  { "uv": [0, 0, 2, 16],  "texture": "#texture" }
+        "down":  { "uv": [0, 0, 16, 2],  "texture": "#side" },
+        "up":    { "uv": [0, 0, 16, 2],  "texture": "#side" },
+        "north": { "uv": [0, 0, 16, 16], "texture": "#back" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#front" },
+        "west":  { "uv": [0, 0, 2, 16],  "texture": "#side" },
+        "east":  { "uv": [0, 0, 2, 16],  "texture": "#side" }
       }
     }
   ]
