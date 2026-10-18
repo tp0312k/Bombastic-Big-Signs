@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# 运行目录（开发测试用）
+run/
+
+# 本地辅助文件
+.workbuddy/
+
+# 系统垃圾
+Thumbs.db
+.DS_Store
