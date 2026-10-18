@@ -9,14 +9,10 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.Material;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.StandingSignBlock;
 import net.minecraft.world.level.block.WallSignBlock;
@@ -30,16 +26,21 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
     /**
      * 模型约定：牌板位于模型空间南缘（z=14..16px），文字面朝外。
      * 站立牌：牌板由本渲染器绘制（blockstate 的 y 旋转只支持 90° 倍数，无法表达 16 向旋转）。
-     * 墙面牌：牌板由方块模型绘制（朝向只有 4 个，90° 步进够用），渲染器只画文字。
+     * 墙面牌：牌板同样由本渲染器绘制（需要按方块实体的颜色染色）。
+     *
+     * 贴图走独立纹理直绑（RenderType.entitySolid(贴图路径)），与原版告示牌
+     * （textures/entity/signs/*.png 独立贴图）同机制。不要改回方块图集
+     * （Material/TextureAtlasSprite/wrap）——在 Embeddium/Iris 环境下图集采样
+     * 会塌缩成单像素颜色（表现为整个牌面变成边框色或填充色）。
      */
     private static final ResourceLocation BOARD_TEXTURE =
-            new ResourceLocation("bigsign", "block/big_sign");
+            new ResourceLocation("bigsign", "textures/block/big_sign.png");
     private static final ResourceLocation BOARD_BACK_TEXTURE =
-            new ResourceLocation("bigsign", "block/big_sign_back");
+            new ResourceLocation("bigsign", "textures/block/big_sign_back.png");
     private static final ResourceLocation BOARD_SIDE_TEXTURE =
-            new ResourceLocation("bigsign", "block/big_sign_side");
+            new ResourceLocation("bigsign", "textures/block/big_sign_side.png");
     private static final ResourceLocation BOARD_WHITE_TEXTURE =
-            new ResourceLocation("bigsign", "block/big_sign_white");
+            new ResourceLocation("bigsign", "textures/block/big_sign_white.png");
 
     private static final float STANDING_TEXT_OFFSET = 0.51F;
     private static final float WALL_TEXT_OFFSET = -0.365F;
@@ -53,11 +54,6 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
     @Override
     public void render(BigSignBlockEntity entity, float partialTick, PoseStack pose, MultiBufferSource buffer,
                        int packedLight, int packedOverlay) {
-        String character = entity.getCharacter();
-        if (character == null || character.isBlank()) {
-            return;
-        }
-
         BlockState state = entity.getBlockState();
         boolean wall = state.getBlock() instanceof WallSignBlock;
         float yaw;
@@ -82,6 +78,18 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
             textOffset = STANDING_TEXT_OFFSET;
         }
 
+        // 板：站立牌与文字同角度；墙面牌用模型旋转角（板随方块实体颜色染色，纯色时无边框）
+        pose.pushPose();
+        pose.translate(0.5, 0.5, 0.5);
+        pose.mulPose(Axis.YP.rotationDegrees(boardYaw));
+        renderBoard(pose, buffer, packedLight, packedOverlay, entity.getBoardColor());
+        pose.popPose();
+
+        String character = entity.getCharacter();
+        if (character == null || character.isBlank()) {
+            return;
+        }
+
         DyeColor dye = entity.getFrontText().getColor();
         int color = dye != null ? (0xFF000000 | (dye.getTextColor() & 0xFFFFFF)) : 0xFF000000;
 
@@ -92,13 +100,6 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         // ASCII 字形约 5x8（墨迹高 7px）：取 FACE/14 使 1 字体像素 ≈ 0.069 格，
         // 与汉字笔画粗细一致（墨迹高约牌面 48%），避免过粗盖住边框。
         float scale = wide ? (FACE / 16.0F) * 1.15F : (FACE / 14.0F);
-
-        // 板：站立牌与文字同角度；墙面牌用模型旋转角（板随方块实体颜色染色，纯色时无边框）
-        pose.pushPose();
-        pose.translate(0.5, 0.5, 0.5);
-        pose.mulPose(Axis.YP.rotationDegrees(boardYaw));
-        renderBoard(pose, buffer, packedLight, packedOverlay, entity.getBoardColor());
-        pose.popPose();
 
         // 文字
         pose.pushPose();
@@ -132,37 +133,28 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
      * 手动绘制牌板（一个 16x16x2px 的薄板，位于局部 z ∈ [0.375, 0.5]），
      * 姿态由调用方先旋转好。boardColor ≥ 0 时用纯白贴图 + 顶点色染成纯色（无边框）；
      * -1 时用原始贴图（保留边框）。
-     *
-     * 渲染走原版 SignRenderer 同款通路：Material.buffer()（entitySolid）+ sprite.wrap()
-     * 坐标展开。不要改回 cutout + 手动图集 UV——在 Embeddium/Iris 环境下该通路
-     * 会出现 UV 采样塌缩（整个牌面渲染成贴图边框单色）的问题。
      */
     private void renderBoard(PoseStack pose, MultiBufferSource buffer, int packedLight, int packedOverlay, int boardColor) {
         float r = 1.0F, g = 1.0F, b = 1.0F;
-        TextureAtlasSprite front;
-        TextureAtlasSprite back;
-        TextureAtlasSprite side;
+        ResourceLocation front;
+        ResourceLocation back;
+        ResourceLocation side;
         if (boardColor >= 0) {
-            TextureAtlasSprite white = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_WHITE_TEXTURE).sprite();
-            front = white;
-            back = white;
-            side = white;
+            front = BOARD_WHITE_TEXTURE;
+            back = BOARD_WHITE_TEXTURE;
+            side = BOARD_WHITE_TEXTURE;
             float[] tint = DyeColor.values()[boardColor].getTextureDiffuseColors();
             r = tint[0];
             g = tint[1];
             b = tint[2];
         } else {
-            front = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_TEXTURE).sprite();
-            back = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_BACK_TEXTURE).sprite();
-            side = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_SIDE_TEXTURE).sprite();
+            front = BOARD_TEXTURE;
+            back = BOARD_BACK_TEXTURE;
+            side = BOARD_SIDE_TEXTURE;
         }
-        // 原版牌板同款：entitySolid 材质缓冲 + sprite 坐标展开
-        // 三个 sprite 同在方块图集，底层 entitySolid 渲染类型相同，取一次缓冲分别 wrap
-        VertexConsumer baseVc = new Material(InventoryMenu.BLOCK_ATLAS, BOARD_TEXTURE)
-                .buffer(buffer, RenderType::entitySolid);
-        VertexConsumer frontVc = front.wrap(baseVc);
-        VertexConsumer backVc = back.wrap(baseVc);
-        VertexConsumer sideVc = side.wrap(baseVc);
+        VertexConsumer frontVc = buffer.getBuffer(RenderType.entitySolid(front));
+        VertexConsumer backVc = buffer.getBuffer(RenderType.entitySolid(back));
+        VertexConsumer sideVc = buffer.getBuffer(RenderType.entitySolid(side));
         PoseStack.Pose p = pose.last();
 
         float x0 = -0.5F, x1 = 0.5F;
@@ -233,10 +225,8 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
                                float nx, float ny, float nz) {
         vc.vertex(pose.pose(), x, y, z);
         vc.color(r, g, b, 1.0F);
-        // uv 为 sprite 相对坐标（0..1），由外层 wrap() 展开为图集坐标。
-        // 半像素内缩，避免小贴图在方块图集中 mipmap 时渗入相邻纹理（表现为边缘杂色）
-        float inset = 0.5F / 16.0F;
-        vc.uv(inset + u * (1.0F - 2.0F * inset), inset + v * (1.0F - 2.0F * inset));
+        // 独立贴图，uv 直接用 0..1 全图坐标（无图集，无渗色，无 mipmap 干扰）
+        vc.uv(u, v);
         vc.overlayCoords(overlay & 0xFFFF, (overlay >> 16) & 0xFFFF);
         vc.uv2(light & 0xFFFF, (light >> 16) & 0xFFFF);
         vc.normal(pose.normal(), nx, ny, nz);
