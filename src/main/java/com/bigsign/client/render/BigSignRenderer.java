@@ -160,14 +160,25 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         pose.scale(scale, -scale, 1.0F);
 
         if (entity.getFrontText().hasGlowingText()) {
-            // 自定义荧光效果：同色加粗 + 全亮。原版 8 向描边在书法字体的细笔画上
-            // 会糊成一团（8 个异色副本互相错开），这里改为正文色朝 8 个方向各偏移
-            // 半个字身单位重画一遍再叠加正文，笔画均匀变粗且无撞色，全亮保证醒目。
-            for (int ox = -1; ox <= 1; ox++) {
-                for (int oy = -1; oy <= 1; oy++) {
-                    if (ox != 0 || oy != 0) {
-                        font.drawInBatch(sequence, x + ox * GLOW_BOLD_OFFSET, y + oy * GLOW_BOLD_OFFSET,
-                                color, false, pose.last().pose(), buffer, Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
+            // 自定义荧光效果：加粗 + 全亮。不用原版 8 向描边（异色副本在细笔画上糊团），
+            // 也不用同字形多次偏移叠加（抗锯齿半透明边缘互相叠出色带/网点）。
+            // 自定义字体：用 BigSignFontMetrics 烘焙的二值膨胀剪影贴图（单层硬边，干净）；
+            // 默认字体（unifont 硬边点阵）：8 向偏移叠加即可，天然无色带。
+            boolean boldDrawn = false;
+            if (box != null) {
+                BigSignFontMetrics.GlowMask mask = BigSignFontMetrics.getGlowMask(fontId, character.codePointAt(0));
+                if (mask != null) {
+                    renderGlowSilhouette(pose, buffer, mask, x, y, color);
+                    boldDrawn = true;
+                }
+            }
+            if (!boldDrawn) {
+                for (int ox = -1; ox <= 1; ox++) {
+                    for (int oy = -1; oy <= 1; oy++) {
+                        if (ox != 0 || oy != 0) {
+                            font.drawInBatch(sequence, x + ox * GLOW_BOLD_OFFSET, y + oy * GLOW_BOLD_OFFSET,
+                                    color, false, pose.last().pose(), buffer, Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
+                        }
                     }
                 }
             }
@@ -179,6 +190,39 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         }
 
         pose.popPose();
+    }
+
+    /**
+     * 绘制荧光加粗剪影（单层硬边贴图，正文色全亮）。坐标为 font px（与 drawInBatch 同一空间）。
+     */
+    private static void renderGlowSilhouette(PoseStack pose, MultiBufferSource buffer,
+                                             BigSignFontMetrics.GlowMask mask, float x, float y, int color) {
+        VertexConsumer vc = buffer.getBuffer(RenderType.text(mask.texture()));
+        org.joml.Matrix4f matrix = pose.last().pose();
+        int a = color >>> 24;
+        if (a < 4) {
+            a = 255;
+        }
+        int r = color >> 16 & 0xFF;
+        int g = color >> 8 & 0xFF;
+        int b = color & 0xFF;
+        float x0 = x + mask.left();
+        float x1 = x + mask.right();
+        float y0 = y + mask.top();
+        float y1 = y + mask.bottom();
+        silhouetteVertex(vc, matrix, x0, y0, 0.0F, 0.0F, r, g, b, a);
+        silhouetteVertex(vc, matrix, x1, y0, 1.0F, 0.0F, r, g, b, a);
+        silhouetteVertex(vc, matrix, x1, y1, 1.0F, 1.0F, r, g, b, a);
+        silhouetteVertex(vc, matrix, x0, y1, 0.0F, 1.0F, r, g, b, a);
+    }
+
+    private static void silhouetteVertex(VertexConsumer vc, org.joml.Matrix4f matrix, float x, float y,
+                                         float u, float v, int r, int g, int b, int a) {
+        vc.vertex(matrix, x, y, 0.0F);
+        vc.color(r, g, b, a);
+        vc.uv(u, v);
+        vc.uv2(FULLBRIGHT & 0xFFFF, FULLBRIGHT >> 16 & 0xFFFF);
+        vc.endVertex();
     }
 
     /**

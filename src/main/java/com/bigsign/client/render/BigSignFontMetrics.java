@@ -7,8 +7,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
+
+import com.mojang.blaze3d.platform.NativeImage;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.stb.STBTTFontinfo;
@@ -59,6 +62,103 @@ public final class BigSignFontMetrics {
      * left/right 为水平墨迹边界，top/bottom 为垂直墨迹边界（即 BakedGlyph 渲染四边形）。
      */
     public record GlyphBox(float left, float right, float top, float bottom) {
+    }
+
+    /**
+     * 荧光加粗剪影：把字形位图二值化并膨胀后烘焙成的独立贴图，
+     * box 为剪影四边形在 font px 坐标系下的范围（绘制点下方为正）。
+     */
+    public record GlowMask(ResourceLocation texture, float left, float right, float top, float bottom) {
+    }
+
+    /** 剪影膨胀半径（OS 像素，1 OS px = 0.25 字身单位 font px）。 */
+    private static final int DILATE_OS = 1;
+    /** 二值化阈值（stb 覆盖度 0..255）。 */
+    private static final int COVERAGE_THRESHOLD = 128;
+
+    private static final Map<String, GlowMask> GLOW_MASKS = new HashMap<>();
+
+    /**
+     * 取指定字体中某字符的荧光加粗剪影；字体加载失败或 TTF 缺字时返回 null。
+     */
+    public static GlowMask getGlowMask(String fontId, int codepoint) {
+        String key = fontId + ":" + codepoint;
+        synchronized (GLOW_MASKS) {
+            GlowMask cached = GLOW_MASKS.get(key);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        LoadedFont font = load(fontId);
+        if (font == null) {
+            return null;
+        }
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            int glyphIndex = STBTruetype.stbtt_FindGlyphIndex(font.info(), codepoint);
+            if (glyphIndex == 0) {
+                return null;
+            }
+            var ix0 = stack.mallocInt(1);
+            var iy0 = stack.mallocInt(1);
+            var ix1 = stack.mallocInt(1);
+            var iy1 = stack.mallocInt(1);
+            STBTruetype.stbtt_GetGlyphBitmapBoxSubpixel(font.info(), glyphIndex,
+                    font.pointScale(), font.pointScale(), 0.0F, SHIFT_Y_OS, ix0, iy0, ix1, iy1);
+            int width = ix1.get(0) - ix0.get(0);
+            int height = iy1.get(0) - iy0.get(0);
+            if (width <= 0 || height <= 0) {
+                return null;
+            }
+            // 渲染字形位图（覆盖度 0..255，含抗锯齿灰阶）
+            ByteBuffer bitmap = BufferUtils.createByteBuffer(width * height);
+            STBTruetype.stbtt_MakeGlyphBitmapSubpixel(font.info(), bitmap, width, height, width,
+                    font.pointScale(), font.pointScale(), 0.0F, SHIFT_Y_OS, glyphIndex);
+            bitmap.rewind();
+            // 二值化 + 膨胀（半径 DILATE_OS 的最大值滤波）：硬边不透明剪影，
+            // 避免半透明边缘多次叠加产生的色带/网点
+            int outW = width + DILATE_OS * 2;
+            int outH = height + DILATE_OS * 2;
+            NativeImage image = new NativeImage(NativeImage.Format.RGBA, outW, outH, false);
+            for (int py = 0; py < outH; py++) {
+                for (int px = 0; px < outW; px++) {
+                    int alpha = 0;
+                    outer:
+                    for (int sy = -DILATE_OS; sy <= DILATE_OS; sy++) {
+                        for (int sx = -DILATE_OS; sx <= DILATE_OS; sx++) {
+                            int bx = px + sx - DILATE_OS;
+                            int by = py + sy - DILATE_OS;
+                            if (bx >= 0 && bx < width && by >= 0 && by < height
+                                    && (bitmap.get(by * width + bx) & 0xFF) >= COVERAGE_THRESHOLD) {
+                                alpha = 255;
+                                break outer;
+                            }
+                        }
+                    }
+                    image.setPixelRGBA(px, py, alpha == 0 ? 0 : (alpha << 24) | 0x00FFFFFF);
+                }
+            }
+            float dilate = DILATE_OS / OVERSAMPLE;
+            var advance = stack.mallocInt(1);
+            var lsb = stack.mallocInt(1);
+            STBTruetype.stbtt_GetGlyphHMetrics(font.info(), glyphIndex, advance, lsb);
+            float bearingX = (lsb.get(0) * font.pointScale() + ix0.get(0)) / OVERSAMPLE;
+            float bearingY = (font.ascentPx() + iy0.get(0) + SHIFT_Y_OS) / OVERSAMPLE;
+            GlowMask mask = new GlowMask(registerGlowTexture(fontId, codepoint, image),
+                    bearingX - dilate,
+                    bearingX + width / OVERSAMPLE + dilate,
+                    bearingY - 3.0F - dilate,
+                    bearingY - 3.0F + height / OVERSAMPLE + dilate);
+            synchronized (GLOW_MASKS) {
+                GLOW_MASKS.put(key, mask);
+            }
+            return mask;
+        }
+    }
+
+    private static ResourceLocation registerGlowTexture(String fontId, int codepoint, NativeImage image) {
+        DynamicTexture texture = new DynamicTexture(image);
+        return Minecraft.getInstance().getTextureManager()
+                .register("bigsign_glow_" + fontId + "_" + codepoint, texture);
     }
 
     /**
