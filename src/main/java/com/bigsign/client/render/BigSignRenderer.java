@@ -45,8 +45,20 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
     private static final float STANDING_TEXT_OFFSET = 0.51F;
     private static final float WALL_TEXT_OFFSET = -0.365F;
 
-    /** mod 内置自定义字体资源（assets/bigsign/font/*.json + 同名 .ttf）。 */
-    private static final java.util.Set<String> BUNDLED_FONTS = java.util.Set.of("rounded", "handwriting");
+    /**
+     * mod 内置自定义字体（assets/bigsign/font/&lt;id&gt;.json + 同名 .ttf）。
+     * 每款字体的缩放/偏移按 MC TrueType 渲染管线精确校准（详见 .workbuddy/fontwork/calib.py）：
+     * 使 CJK 墨迹高 0.759 格、中心 y=0.369；ASCII 墨迹高 0.48 格、中心 y=0.5，
+     * 与默认 unifont 视觉基准完全一致（wideScale, wideY, narrowScale, narrowY）。
+     */
+    private record FontMetrics(float wideScale, float wideY, float narrowScale, float narrowY) {
+    }
+
+    private static final java.util.Map<String, FontMetrics> CUSTOM_FONTS = java.util.Map.of(
+            "kaiti", new FontMetrics(0.08433F, -0.659F, 0.07111F, -2.088F),
+            "mangcao", new FontMetrics(0.08433F, -0.875F, 0.05818F, -2.305F),
+            "naipao", new FontMetrics(0.12144F, -2.329F, 0.09600F, -3.533F)
+    );
 
     private final Font font;
 
@@ -98,18 +110,28 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
 
         // 字体：空串/未知 id 走默认字体（Font 端对未知字体 id 自动回退，不会崩溃）
         Style style = Style.EMPTY;
+        FontMetrics metrics = null;
         String fontId = entity.getFontId();
-        if (fontId != null && BUNDLED_FONTS.contains(fontId)) {
-            style = style.withFont(new ResourceLocation("bigsign", fontId));
+        if (fontId != null) {
+            metrics = CUSTOM_FONTS.get(fontId);
+            if (metrics != null) {
+                style = style.withFont(new ResourceLocation("bigsign", fontId));
+            }
         }
 
         FormattedCharSequence sequence = FormattedCharSequence.forward(character, style);
         boolean wide = character.codePointAt(0) > 0xFF;
 
-        // unifont 全角字形（汉字等）为 16x16；放大 15% 后墨迹约占牌面 73%，为视觉主体。
-        // ASCII 字形约 5x8（墨迹高 7px）：取 FACE/14 使 1 字体像素 ≈ 0.069 格，
-        // 与汉字笔画粗细一致（墨迹高约牌面 48%），避免过粗盖住边框。
-        float scale = wide ? (FACE / 16.0F) * 1.15F : (FACE / 14.0F);
+        // 默认 unifont：全角字形（汉字等）16x16 放大 15%；ASCII 取 FACE/14。
+        // 自定义字体：用离线校准的度量表（保证墨迹大小与居中和默认字体一致）。
+        float scale = metrics != null ? (wide ? metrics.wideScale() : metrics.narrowScale())
+                : (wide ? (FACE / 16.0F) * 1.15F : (FACE / 14.0F));
+
+        // x 居中后整体右移 1 个纹理像素（0.96/16 = 0.06 格，世界单位恒定 → 换算成字体像素 0.06/scale）
+        float x = -this.font.width(sequence) / 2.0F + 0.06F / scale;
+        // 默认字体 y 偏移为历次目测校准结果；自定义字体 y 偏移为解析校准值。
+        float y = metrics != null ? (wide ? metrics.wideY() : metrics.narrowY())
+                : (wide ? -4.1F : -3.5F);
 
         // 文字
         pose.pushPose();
@@ -117,17 +139,6 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         pose.mulPose(Axis.YP.rotationDegrees(yaw));
         pose.translate(0.0, 0.0, textOffset);
         pose.scale(scale, -scale, 1.0F);
-
-        float x = -font.width(sequence) / 2.0F;
-        // 用户要求中/英/数整体右移 1 个纹理像素（0.96/16 = 0.06 格）：
-        // 0.06 / 0.069 ≈ 0.87 字体像素（两种字号的比例几乎相同，共用同一偏移）。
-        x += 0.87F;
-        // unifont 全角字形墨迹在 16px 单元格内顶部对齐（墨迹约为绘制点下方 +0.5..+11.5px，中心 ≈ +5.3px）。
-        // 用户要求在居中基础上再下移约 2 个纹理像素（0.125 格）：0.5 - 0.125 ≈ 0.415 →
-        // (0.5 - 0.415) / 0.069 ≈ 1.23 → 绘制点 y = 1.23 - 5.3 ≈ -4.1。
-        // ASCII 墨迹在绘制点下方 0..7px（中心 ≈ +3.5px）；用户先后校准：下移 1px 后又上移 1px → 恢复严格居中：
-        // 0.5 - 0.0686 * (y + 3.5) = 0.5 → y = -3.5。
-        float y = wide ? -4.1F : -3.5F;
 
         if (entity.getFrontText().hasGlowingText()) {
             font.drawInBatch8xOutline(sequence, x, y, color, 0xFF000000, pose.last().pose(), buffer, FULLBRIGHT);

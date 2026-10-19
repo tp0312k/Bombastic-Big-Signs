@@ -26,8 +26,9 @@ public class BigSignEditScreen extends Screen {
     };
     private static final String[][] FONTS = {
             {"默认字体", ""},
-            {"圆润体", "rounded"},
-            {"手写体", "handwriting"}
+            {"楷体", "kaiti"},
+            {"行书", "mangcao"},
+            {"奶泡体", "naipao"}
     };
 
     private static final int DROPDOWN_NONE = 0;
