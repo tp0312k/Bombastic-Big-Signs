@@ -21,6 +21,8 @@ import net.minecraft.world.level.block.state.BlockState;
 public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> {
 
     private static final int FULLBRIGHT = 0xF000F0;
+    /** 荧光加粗偏移量（font px，按字身比例缩放）。 */
+    private static final float GLOW_BOLD_OFFSET = 0.5F;
     private static final float FACE = 0.96F;
 
     /**
@@ -144,10 +146,10 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
             y = (0.5F - targetC) / scale - (box.top() + box.bottom()) / 2.0F;
         } else {
             // 默认 unifont：全角字形（汉字等）16x16 放大 15%；ASCII 取 FACE/14。
-            // y 使墨迹中心落在牌面正中：unifont 位图字形墨迹顶=绘制点（bearingY 默认 3）。
+            // y 为用户逐轮目测校准的位置（与自定义字体的 0.5 居中基准不同，用户要求保留原位）。
             scale = wide ? (FACE / 16.0F) * 1.15F : (FACE / 14.0F);
             x = -this.font.width(sequence) / 2.0F + 0.06F / scale;
-            y = wide ? -(WIDE_TARGET_H / 2.0F) / scale : -(NARROW_TARGET_H / 2.0F) / scale;
+            y = wide ? -4.1F : -3.5F;
         }
 
         // 文字
@@ -158,29 +160,25 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         pose.scale(scale, -scale, 1.0F);
 
         if (entity.getFrontText().hasGlowingText()) {
-            font.drawInBatch8xOutline(sequence, x, y, color, getOutlineColor(dye), pose.last().pose(), buffer, FULLBRIGHT);
+            // 自定义荧光效果：同色加粗 + 全亮。原版 8 向描边在书法字体的细笔画上
+            // 会糊成一团（8 个异色副本互相错开），这里改为正文色朝 8 个方向各偏移
+            // 半个字身单位重画一遍再叠加正文，笔画均匀变粗且无撞色，全亮保证醒目。
+            for (int ox = -1; ox <= 1; ox++) {
+                for (int oy = -1; oy <= 1; oy++) {
+                    if (ox != 0 || oy != 0) {
+                        font.drawInBatch(sequence, x + ox * GLOW_BOLD_OFFSET, y + oy * GLOW_BOLD_OFFSET,
+                                color, false, pose.last().pose(), buffer, Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
+                    }
+                }
+            }
+            font.drawInBatch(sequence, x, y, color, false, pose.last().pose(), buffer,
+                    Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
         } else {
             font.drawInBatch(sequence, x, y, color, false, pose.last().pose(), buffer,
                     Font.DisplayMode.POLYGON_OFFSET, 0, packedLight);
         }
 
         pose.popPose();
-    }
-
-    /**
-     * 荧光文字的描边颜色，复刻原版 SignRenderer.getDarkColor：
-     * 黑字（含默认）荧光时用奶白 0xF0ECCC 描边（否则黑边吃掉黑字），
-     * 其余颜色按 RGB×0.4 调暗成同色调深色，比纯黑柔和。
-     */
-    private static int getOutlineColor(DyeColor dye) {
-        if (dye == null || dye == DyeColor.BLACK) {
-            return 0xFFF0ECCC;
-        }
-        int rgb = dye.getTextColor();
-        int r = (int) ((rgb >> 16 & 0xFF) * 0.4);
-        int g = (int) ((rgb >> 8 & 0xFF) * 0.4);
-        int b = (int) ((rgb & 0xFF) * 0.4);
-        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     /**
