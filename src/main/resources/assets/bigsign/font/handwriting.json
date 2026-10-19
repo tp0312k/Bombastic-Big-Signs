@@ -2,7 +2,7 @@
   "providers": [
     {
       "type": "ttf",
-      "file": "bigsign:font/handwriting.ttf",
+      "file": "bigsign:handwriting.ttf",
       "shift": [0, 1],
       "size": 11.0,
       "oversample": 4.0
