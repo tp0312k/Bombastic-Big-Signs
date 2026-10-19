@@ -60,9 +60,9 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
             "naipao", new FontMetrics(0.12144F, 0.09600F)
     );
 
-    /** 默认 unifont 视觉基准（世界单位，牌面中心 y=0.5）：CJK 墨迹高/中心、ASCII 墨迹高/中心。 */
+    /** 默认 unifont 视觉基准（世界单位，牌面中心 y=0.5）：墨迹高 0.759/0.48，墨迹中心一律对齐牌面正中。 */
     private static final float WIDE_TARGET_H = 0.759F;
-    private static final float WIDE_TARGET_C = 0.3689F;
+    private static final float WIDE_TARGET_C = 0.5F;
     private static final float NARROW_TARGET_H = 0.48F;
     private static final float NARROW_TARGET_C = 0.5F;
 
@@ -144,9 +144,10 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
             y = (0.5F - targetC) / scale - (box.top() + box.bottom()) / 2.0F;
         } else {
             // 默认 unifont：全角字形（汉字等）16x16 放大 15%；ASCII 取 FACE/14。
+            // y 使墨迹中心落在牌面正中：unifont 位图字形墨迹顶=绘制点（bearingY 默认 3）。
             scale = wide ? (FACE / 16.0F) * 1.15F : (FACE / 14.0F);
             x = -this.font.width(sequence) / 2.0F + 0.06F / scale;
-            y = wide ? -4.1F : -3.5F;
+            y = wide ? -(WIDE_TARGET_H / 2.0F) / scale : -(NARROW_TARGET_H / 2.0F) / scale;
         }
 
         // 文字
@@ -157,13 +158,29 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         pose.scale(scale, -scale, 1.0F);
 
         if (entity.getFrontText().hasGlowingText()) {
-            font.drawInBatch8xOutline(sequence, x, y, color, 0xFF000000, pose.last().pose(), buffer, FULLBRIGHT);
+            font.drawInBatch8xOutline(sequence, x, y, color, getOutlineColor(dye), pose.last().pose(), buffer, FULLBRIGHT);
         } else {
             font.drawInBatch(sequence, x, y, color, false, pose.last().pose(), buffer,
                     Font.DisplayMode.POLYGON_OFFSET, 0, packedLight);
         }
 
         pose.popPose();
+    }
+
+    /**
+     * 荧光文字的描边颜色，复刻原版 SignRenderer.getDarkColor：
+     * 黑字（含默认）荧光时用奶白 0xF0ECCC 描边（否则黑边吃掉黑字），
+     * 其余颜色按 RGB×0.4 调暗成同色调深色，比纯黑柔和。
+     */
+    private static int getOutlineColor(DyeColor dye) {
+        if (dye == null || dye == DyeColor.BLACK) {
+            return 0xFFF0ECCC;
+        }
+        int rgb = dye.getTextColor();
+        int r = (int) ((rgb >> 16 & 0xFF) * 0.4);
+        int g = (int) ((rgb >> 8 & 0xFF) * 0.4);
+        int b = (int) ((rgb & 0xFF) * 0.4);
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     /**
