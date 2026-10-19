@@ -47,18 +47,24 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
 
     /**
      * mod 内置自定义字体（assets/bigsign/font/&lt;id&gt;.json + 同名 .ttf）。
-     * 每款字体的缩放/偏移按 MC TrueType 渲染管线精确校准（详见 .workbuddy/fontwork/calib.py）：
-     * 使 CJK 墨迹高 0.759 格、中心 y=0.369；ASCII 墨迹高 0.48 格、中心 y=0.5，
-     * 与默认 unifont 视觉基准完全一致（wideScale, wideY, narrowScale, narrowY）。
+     * 缩放按离线校准的中位数墨迹高度确定（保持各字体相对字重，详见 .workbuddy/fontwork/calib.py）；
+     * 位置则由 BigSignFontMetrics 在运行时按每个字符的真实墨迹框精确居中——
+     * 书法字体逐字墨迹位置差异极大，固定偏移常量会导致具体字跑偏。
      */
-    private record FontMetrics(float wideScale, float wideY, float narrowScale, float narrowY) {
+    private record FontMetrics(float wideScale, float narrowScale) {
     }
 
     private static final java.util.Map<String, FontMetrics> CUSTOM_FONTS = java.util.Map.of(
-            "kaiti", new FontMetrics(0.08433F, -0.659F, 0.07111F, -2.088F),
-            "mangcao", new FontMetrics(0.08433F, -0.875F, 0.05818F, -2.305F),
-            "naipao", new FontMetrics(0.12144F, -2.329F, 0.09600F, -3.533F)
+            "kaiti", new FontMetrics(0.08433F, 0.07111F),
+            "mangcao", new FontMetrics(0.08433F, 0.05818F),
+            "naipao", new FontMetrics(0.12144F, 0.09600F)
     );
+
+    /** 默认 unifont 视觉基准（世界单位，牌面中心 y=0.5）：CJK 墨迹高/中心、ASCII 墨迹高/中心。 */
+    private static final float WIDE_TARGET_H = 0.759F;
+    private static final float WIDE_TARGET_C = 0.3689F;
+    private static final float NARROW_TARGET_H = 0.48F;
+    private static final float NARROW_TARGET_C = 0.5F;
 
     private final Font font;
 
@@ -122,16 +128,26 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         FormattedCharSequence sequence = FormattedCharSequence.forward(character, style);
         boolean wide = character.codePointAt(0) > 0xFF;
 
-        // 默认 unifont：全角字形（汉字等）16x16 放大 15%；ASCII 取 FACE/14。
-        // 自定义字体：用离线校准的度量表（保证墨迹大小与居中和默认字体一致）。
-        float scale = metrics != null ? (wide ? metrics.wideScale() : metrics.narrowScale())
-                : (wide ? (FACE / 16.0F) * 1.15F : (FACE / 14.0F));
-
-        // x 居中后整体右移 1 个纹理像素（0.96/16 = 0.06 格，世界单位恒定 → 换算成字体像素 0.06/scale）
-        float x = -this.font.width(sequence) / 2.0F + 0.06F / scale;
-        // 默认字体 y 偏移为历次目测校准结果；自定义字体 y 偏移为解析校准值。
-        float y = metrics != null ? (wide ? metrics.wideY() : metrics.narrowY())
-                : (wide ? -4.1F : -3.5F);
+        // 位置：自定义字体按每字符真实墨迹框运行时精确居中（缺字回退默认定位，与
+        // MC 逐字回退 unifont 渲染一致）；默认 unifont 用历次目测校准结果。
+        float scale;
+        float x;
+        float y;
+        BigSignFontMetrics.GlyphBox box = metrics != null
+                ? BigSignFontMetrics.getGlyph(fontId, character.codePointAt(0)) : null;
+        if (box != null) {
+            scale = wide ? metrics.wideScale() : metrics.narrowScale();
+            float targetC = wide ? WIDE_TARGET_C : NARROW_TARGET_C;
+            // x：墨迹水平居中后整体右移 1 个纹理像素（0.96/16 = 0.06 格）
+            x = -(box.left() + box.right()) / 2.0F + 0.06F / scale;
+            // y：world_dy = -scale * font_y（pose.y 取负），墨迹中心对齐目标高度
+            y = (0.5F - targetC) / scale - (box.top() + box.bottom()) / 2.0F;
+        } else {
+            // 默认 unifont：全角字形（汉字等）16x16 放大 15%；ASCII 取 FACE/14。
+            scale = wide ? (FACE / 16.0F) * 1.15F : (FACE / 14.0F);
+            x = -this.font.width(sequence) / 2.0F + 0.06F / scale;
+            y = wide ? -4.1F : -3.5F;
+        }
 
         // 文字
         pose.pushPose();
