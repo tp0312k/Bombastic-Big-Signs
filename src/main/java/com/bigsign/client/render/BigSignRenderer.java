@@ -160,30 +160,32 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         pose.scale(scale, -scale, 1.0F);
 
         if (entity.getFrontText().hasGlowingText()) {
-            // 自定义荧光效果：加粗 + 全亮。不用原版 8 向描边（异色副本在细笔画上糊团），
-            // 也不用同字形多次偏移叠加（抗锯齿半透明边缘互相叠出色带/网点）。
-            // 自定义字体：用 BigSignFontMetrics 烘焙的二值膨胀剪影贴图（单层硬边，干净）；
-            // 默认字体（unifont 硬边点阵）：8 向偏移叠加即可，天然无色带。
-            boolean boldDrawn = false;
-            if (box != null) {
+            // 荧光效果（用户指定，按字体分流）：
+            // 默认字体（unifont 硬边点阵）：最初的黑色 8 向描边，点阵字上干净清晰；
+            // 自定义字体：烘焙的二值膨胀剪影贴图（单层硬边）——抗锯齿字形多次偏移叠加
+            // 会叠出色带/网点，剪影方案无此问题。
+            if (box == null) {
+                font.drawInBatch8xOutline(sequence, x, y, color, 0xFF000000, pose.last().pose(), buffer, FULLBRIGHT);
+            } else {
+                boolean boldDrawn = false;
                 BigSignFontMetrics.GlowMask mask = BigSignFontMetrics.getGlowMask(fontId, character.codePointAt(0));
                 if (mask != null) {
                     renderGlowSilhouette(pose, buffer, mask, x, y, color);
                     boldDrawn = true;
                 }
-            }
-            if (!boldDrawn) {
-                for (int ox = -1; ox <= 1; ox++) {
-                    for (int oy = -1; oy <= 1; oy++) {
-                        if (ox != 0 || oy != 0) {
-                            font.drawInBatch(sequence, x + ox * GLOW_BOLD_OFFSET, y + oy * GLOW_BOLD_OFFSET,
-                                    color, false, pose.last().pose(), buffer, Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
+                if (!boldDrawn) {
+                    for (int ox = -1; ox <= 1; ox++) {
+                        for (int oy = -1; oy <= 1; oy++) {
+                            if (ox != 0 || oy != 0) {
+                                font.drawInBatch(sequence, x + ox * GLOW_BOLD_OFFSET, y + oy * GLOW_BOLD_OFFSET,
+                                        color, false, pose.last().pose(), buffer, Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
+                            }
                         }
                     }
                 }
+                font.drawInBatch(sequence, x, y, color, false, pose.last().pose(), buffer,
+                        Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
             }
-            font.drawInBatch(sequence, x, y, color, false, pose.last().pose(), buffer,
-                    Font.DisplayMode.POLYGON_OFFSET, 0, FULLBRIGHT);
         } else {
             font.drawInBatch(sequence, x, y, color, false, pose.last().pose(), buffer,
                     Font.DisplayMode.POLYGON_OFFSET, 0, packedLight);
