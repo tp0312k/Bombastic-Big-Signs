@@ -3,16 +3,15 @@ package com.bigsign.init;
 import com.bigsign.BigSignMod;
 import com.bigsign.block.entity.BigSignBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
 
 public final class ModBlockEntities {
 
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
-            DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, BigSignMod.MODID);
+            DeferredRegister.create(net.minecraft.core.registries.Registries.BLOCK_ENTITY_TYPE, BigSignMod.MODID);
 
-    public static final RegistryObject<BlockEntityType<BigSignBlockEntity>> BIG_SIGN =
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<BigSignBlockEntity>> BIG_SIGN =
             BLOCK_ENTITIES.register("big_sign",
                     () -> BlockEntityType.Builder.of(
                             BigSignBlockEntity::new,

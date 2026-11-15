@@ -14,12 +14,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
-@Mod.EventBusSubscriber(modid = BigSignMod.MODID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = BigSignMod.MODID, value = Dist.CLIENT)
 public final class ClientForgeEvents {
 
     private ClientForgeEvents() {
@@ -47,7 +47,7 @@ public final class ClientForgeEvents {
         boolean isInteractItem = held instanceof DyeItem
                 || held == Items.GLOW_INK_SAC
                 || held == Items.INK_SAC
-                || stack.is(Items.HONEYCOMB)
+                || held == Items.HONEYCOMB
                 || held instanceof BlockItem;
 
         if (isInteractItem) {

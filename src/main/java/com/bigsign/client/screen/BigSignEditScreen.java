@@ -119,8 +119,8 @@ public class BigSignEditScreen extends Screen {
         } else if (this.openDropdown == DROPDOWN_BOARD) {
             list.add(new Entry("原始贴图", -1, -1));
             for (int i = 0; i < DyeColor.values().length; i++) {
-                float[] c = DyeColor.values()[i].getTextureDiffuseColors();
-                int rgb = 0xFF000000 | ((int) (c[0] * 255) << 16) | ((int) (c[1] * 255) << 8) | (int) (c[2] * 255);
+                // 1.21.1 的 getTextureDiffuseColor 返回打包 RGB int
+                int rgb = DyeColor.values()[i].getTextureDiffuseColor() & 0xFFFFFF;
                 list.add(new Entry(DYE_NAMES[i], rgb, i));
             }
         } else if (this.openDropdown == DROPDOWN_FONT) {
@@ -153,7 +153,8 @@ public class BigSignEditScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics);
+        // 1.21 起 renderBackground 需要 4 参数版本
+        this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 40, 0xFFFFFF);
         if (this.openDropdown != DROPDOWN_NONE) {
@@ -217,8 +218,8 @@ public class BigSignEditScreen extends Screen {
             this.curFontId = FONTS[entry.value()][1];
         }
         // 整包发送完整样式状态
-        BigSignNetwork.CHANNEL.sendToServer(
-                new BigSignNetwork.SetStylePacket(this.pos, this.curTextColor, this.curBoardColor, this.curFontId));
+        BigSignNetwork.sendToServer(
+                new BigSignNetwork.SetStylePayload(this.pos, this.curTextColor, this.curBoardColor, this.curFontId));
         this.textColorBtn.setMessage(textColorLabel());
         this.boardColorBtn.setMessage(boardColorLabel());
         this.fontBtn.setMessage(fontLabel());
@@ -226,7 +227,7 @@ public class BigSignEditScreen extends Screen {
 
     @Override
     public void tick() {
-        this.input.tick();
+        // 1.21 的 EditBox 没有 tick()（光标闪烁由组件内部处理）
     }
 
     @Override
@@ -257,6 +258,6 @@ public class BigSignEditScreen extends Screen {
         if (value.length() > 1) {
             value = value.substring(0, 1);
         }
-        BigSignNetwork.CHANNEL.sendToServer(new BigSignNetwork.SetTextPacket(this.pos, value));
+        BigSignNetwork.sendToServer(new BigSignNetwork.SetTextPayload(this.pos, value));
     }
 }

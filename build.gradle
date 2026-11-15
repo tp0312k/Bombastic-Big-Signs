@@ -1,7 +1,6 @@
 plugins {
-    id 'eclipse'
-    id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
 }
 
 version = '1.1.1'
@@ -11,55 +10,61 @@ base {
     archivesName = 'bigsign'
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-minecraft {
-    mappings channel: 'official', version: '1.20.1'
+neoForge {
+    version = '21.1.259'
 
     runs {
-        configureEach {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            mods {
-                bigsign {
-                    source sourceSets.main
-                }
-            }
-        }
-
         client {
-            property 'forge.enabledGameTestNamespaces', 'bigsign'
+            client()
         }
-
         server {
-            property 'forge.enabledGameTestNamespaces', 'bigsign'
-            args '--nogui'
+            server()
+        }
+    }
+
+    mods {
+        bigsign {
+            sourceSet sourceSets.main
         }
     }
 }
-
-sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-}
-
-dependencies {
-    minecraft "net.minecraftforge:forge:1.20.1-47.2.0"
-}
-
-tasks.named('jar', Jar).configure {
-    manifest {
-        attributes([
-                'Specification-Title'     : 'bigsign',
-                'Specification-Vendor'    : 'bigsign',
-                'Specification-Version'   : '1',
-                'Implementation-Title'    : 'BigSign',
-                'Implementation-Version'  : '1.0.0',
-                'Implementation-Vendor'   : 'bigsign'
-        ])
+    // minecraft-dependencies（MC 库清单）官方只在 maven.neoforged.net/mojang-meta 上，
+    // 该域名被 DNS 污染；.workbuddy/local-maven 里有从 Mojang 官方元数据本地生成的等价 POM。
+    maven {
+        name = 'Local minecraft-dependencies'
+        url = uri('.workbuddy/local-maven')
+        content { includeGroup 'net.neoforged' }
     }
-    finalizedBy 'reobfJar'
+    // maven.neoforged.net 在国内被 DNS 污染，无法访问。
+    // BMCLAPI 镜像了 neoforge 本体与 neoform，StellarDrift 镜像了 neoform-runtime（NFRT）。
+    // 插件自动添加的官方仓库 URL 由 .workbuddy/init-neo.gradle 重写。
+    maven {
+        name = 'BMCLAPI NeoForged Mirror'
+        url = 'https://bmclapi2.bangbang93.com/maven/'
+        content {
+            includeGroupByRegex 'net\\.neoforged.*'
+            includeGroupByRegex 'cpw\\.mods.*'
+            includeGroupByRegex 'net\\.minecraftforge.*'
+        }
+    }
+    maven {
+        name = 'StellarDrift (NeoForm runtime)'
+        url = 'https://repo.stellardrift.ca/maven/internal/'
+        content {
+            includeGroupByRegex 'net\\.neoforged.*'
+            includeGroupByRegex 'cpw\\.mods.*'
+        }
+    }
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+        content { includeGroupByRegex 'net\\.minecraftforge.*' }
+    }
+    mavenCentral()
 }
 
 tasks.withType(JavaCompile).configureEach {

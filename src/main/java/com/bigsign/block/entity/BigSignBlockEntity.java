@@ -2,12 +2,12 @@ package com.bigsign.block.entity;
 
 import com.bigsign.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 
 import java.util.function.UnaryOperator;
 
@@ -84,27 +84,22 @@ public class BigSignBlockEntity extends SignBlockEntity {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag) {
-        super.saveAdditional(tag);
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
         tag.putInt("BigSignBoardColor", this.boardColor);
         tag.putString("BigSignFontId", this.fontId);
     }
 
     @Override
-    public void load(CompoundTag tag) {
-        super.load(tag);
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
         this.boardColor = tag.contains("BigSignBoardColor") ? tag.getInt("BigSignBoardColor") : BOARD_ORIGINAL;
         this.fontId = tag.contains("BigSignFontId") ? tag.getString("BigSignFontId") : "";
     }
 
     @Override
-    public CompoundTag getUpdateTag() {
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         // saveWithoutMetadata 走 saveAdditional，自动带上样式字段
-        return this.saveWithoutMetadata();
-    }
-
-    @Override
-    public AABB getRenderBoundingBox() {
-        return super.getRenderBoundingBox().inflate(0.5);
+        return this.saveWithoutMetadata(registries);
     }
 }

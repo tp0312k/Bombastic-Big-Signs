@@ -36,13 +36,13 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
      * 会塌缩成单像素颜色（表现为整个牌面变成边框色或填充色）。
      */
     private static final ResourceLocation BOARD_TEXTURE =
-            new ResourceLocation("bigsign", "textures/block/big_sign.png");
+            ResourceLocation.fromNamespaceAndPath("bigsign", "textures/block/big_sign.png");
     private static final ResourceLocation BOARD_BACK_TEXTURE =
-            new ResourceLocation("bigsign", "textures/block/big_sign_back.png");
+            ResourceLocation.fromNamespaceAndPath("bigsign", "textures/block/big_sign_back.png");
     private static final ResourceLocation BOARD_SIDE_TEXTURE =
-            new ResourceLocation("bigsign", "textures/block/big_sign_side.png");
+            ResourceLocation.fromNamespaceAndPath("bigsign", "textures/block/big_sign_side.png");
     private static final ResourceLocation BOARD_WHITE_TEXTURE =
-            new ResourceLocation("bigsign", "textures/block/big_sign_white.png");
+            ResourceLocation.fromNamespaceAndPath("bigsign", "textures/block/big_sign_white.png");
 
     private static final float STANDING_TEXT_OFFSET = 0.51F;
     private static final float WALL_TEXT_OFFSET = -0.365F;
@@ -63,9 +63,7 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
     );
 
     /** 默认 unifont 视觉基准（世界单位，牌面中心 y=0.5）：墨迹高 0.759/0.48，墨迹中心一律对齐牌面正中。 */
-    private static final float WIDE_TARGET_H = 0.759F;
     private static final float WIDE_TARGET_C = 0.5F;
-    private static final float NARROW_TARGET_H = 0.48F;
     private static final float NARROW_TARGET_C = 0.5F;
 
     private final Font font;
@@ -123,7 +121,7 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
         if (fontId != null) {
             metrics = CUSTOM_FONTS.get(fontId);
             if (metrics != null) {
-                style = style.withFont(new ResourceLocation("bigsign", fontId));
+                style = style.withFont(ResourceLocation.fromNamespaceAndPath("bigsign", fontId));
             }
         }
 
@@ -220,11 +218,11 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
 
     private static void silhouetteVertex(VertexConsumer vc, org.joml.Matrix4f matrix, float x, float y,
                                          float u, float v, int r, int g, int b, int a) {
-        vc.vertex(matrix, x, y, 0.0F);
-        vc.color(r, g, b, a);
-        vc.uv(u, v);
-        vc.uv2(FULLBRIGHT & 0xFFFF, FULLBRIGHT >> 16 & 0xFFFF);
-        vc.endVertex();
+        // 1.21 的 VertexConsumer：addVertex/setColor/setUv/setUv1/setUv2，无 endVertex
+        vc.addVertex(matrix, x, y, 0.0F);
+        vc.setColor(r, g, b, a);
+        vc.setUv(u, v);
+        vc.setUv2(FULLBRIGHT & 0xFFFF, FULLBRIGHT >> 16 & 0xFFFF);
     }
 
     /**
@@ -241,10 +239,11 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
             front = BOARD_WHITE_TEXTURE;
             back = BOARD_WHITE_TEXTURE;
             side = BOARD_WHITE_TEXTURE;
-            float[] tint = DyeColor.values()[boardColor].getTextureDiffuseColors();
-            r = tint[0];
-            g = tint[1];
-            b = tint[2];
+            // 1.21.1 的 getTextureDiffuseColor 返回打包的 RGB int
+            int tint = DyeColor.values()[boardColor].getTextureDiffuseColor();
+            r = (tint >> 16 & 0xFF) / 255.0F;
+            g = (tint >> 8 & 0xFF) / 255.0F;
+            b = (tint & 0xFF) / 255.0F;
         } else {
             front = BOARD_TEXTURE;
             back = BOARD_BACK_TEXTURE;
@@ -321,13 +320,13 @@ public class BigSignRenderer implements BlockEntityRenderer<BigSignBlockEntity> 
                                float r, float g, float b,
                                float x, float y, float z, float u, float v,
                                float nx, float ny, float nz) {
-        vc.vertex(pose.pose(), x, y, z);
-        vc.color(r, g, b, 1.0F);
+        // 1.21 的 VertexConsumer：addVertex/setColor/setUv/setUv1/setUv2/setNormal，无 endVertex
+        vc.addVertex(pose.pose(), x, y, z);
+        vc.setColor(r, g, b, 1.0F);
         // 独立贴图，uv 直接用 0..1 全图坐标（无图集，无渗色，无 mipmap 干扰）
-        vc.uv(u, v);
-        vc.overlayCoords(overlay & 0xFFFF, (overlay >> 16) & 0xFFFF);
-        vc.uv2(light & 0xFFFF, (light >> 16) & 0xFFFF);
-        vc.normal(pose.normal(), nx, ny, nz);
-        vc.endVertex();
+        vc.setUv(u, v);
+        vc.setUv1(overlay & 0xFFFF, (overlay >> 16) & 0xFFFF);
+        vc.setUv2(light & 0xFFFF, (light >> 16) & 0xFFFF);
+        vc.setNormal(pose, nx, ny, nz);
     }
 }

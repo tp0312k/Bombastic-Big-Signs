@@ -2,9 +2,10 @@ package com.bigsign.block;
 
 import com.bigsign.block.entity.BigSignBlockEntity;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.WallSignBlock;
@@ -17,7 +18,8 @@ import net.minecraft.world.phys.BlockHitResult;
 public class BigWallSignBlock extends WallSignBlock {
 
     public BigWallSignBlock(BlockBehaviour.Properties properties, WoodType type) {
-        super(properties, type);
+        // 1.21.1 构造器参数顺序：(WoodType, Properties)
+        super(type, properties);
     }
 
     @Override
@@ -31,7 +33,15 @@ public class BigWallSignBlock extends WallSignBlock {
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        return BigSignInteractions.apply(level.getBlockEntity(pos), level, player, player.getItemInHand(hand));
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
+                                              Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
+        return BigSignInteractions.applyWithItem(level.getBlockEntity(pos), level, player, stack);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+                                               Player player, BlockHitResult hit) {
+        // 空手交互：右键编辑界面由客户端事件（ClientForgeEvents）接管，此处直接跳过
+        return InteractionResult.PASS;
     }
 }

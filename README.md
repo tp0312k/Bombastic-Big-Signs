@@ -34,8 +34,9 @@
 
 ## 安装
 
-- Minecraft **1.20.1** + Forge **47.x**
-- 把 `bigsign-1.0.0.jar` 放进 `.minecraft/mods/`（客户端和服务端都要装）
+- Minecraft **1.20.1** + Forge **47.x**（`master` 分支）
+- Minecraft **1.21.1** + NeoForge **21.1.x**（`neoforge-1.21.1` 分支）
+- 把 `bigsign-1.1.1.jar` 放进 `.minecraft/mods/`（客户端和服务端都要装）
 
 ## 构建
 
@@ -43,7 +44,12 @@
 ./gradlew build
 ```
 
-产物位于 `build/libs/bigsign-1.0.0.jar`。需要 JDK 17。
+产物位于 `build/libs/bigsign-1.1.1.jar`。Forge 1.20.1 需要 JDK 17；NeoForge 1.21.1 需要 JDK 21。
+
+> 国内网络注意：`maven.neoforged.net` 被 DNS 污染，构建 NeoForge 版本时请使用
+> `gradlew -I .workbuddy/init-neo.gradle build`（脚本会把官方仓库重写到 BMCLAPI /
+> StellarDrift 镜像，并在 `.workbuddy/local-maven` 提供本地生成的
+> `minecraft-dependencies` 工件）。
 
 ## 技术说明
 

@@ -156,9 +156,11 @@ public final class BigSignFontMetrics {
     }
 
     private static ResourceLocation registerGlowTexture(String fontId, int codepoint, NativeImage image) {
-        DynamicTexture texture = new DynamicTexture(image);
-        return Minecraft.getInstance().getTextureManager()
-                .register("bigsign_glow_" + fontId + "_" + codepoint, texture);
+        // 1.21 起直接用 ResourceLocation 注册（构造器私有，必须走工厂方法）
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(
+                com.bigsign.BigSignMod.MODID, "glow/" + fontId + "_" + codepoint);
+        Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(image));
+        return id;
     }
 
     /**
@@ -208,7 +210,7 @@ public final class BigSignFontMetrics {
         }
         try {
             Optional<Resource> res = Minecraft.getInstance().getResourceManager()
-                    .getResource(new ResourceLocation("bigsign", "font/" + fontId + ".ttf"));
+                    .getResource(ResourceLocation.fromNamespaceAndPath("bigsign", "font/" + fontId + ".ttf"));
             byte[] bytes;
             try (InputStream is = res.orElseThrow(() -> new IllegalStateException("font ttf not found")).open()) {
                 bytes = is.readAllBytes();

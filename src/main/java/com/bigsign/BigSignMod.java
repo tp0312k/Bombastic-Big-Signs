@@ -6,25 +6,22 @@ import com.bigsign.init.ModBlocks;
 import com.bigsign.init.ModItems;
 import com.bigsign.network.BigSignNetwork;
 import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
 @Mod(BigSignMod.MODID)
 public class BigSignMod {
 
     public static final String MODID = "bigsign";
 
-    public BigSignMod() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
-
+    public BigSignMod(IEventBus modBus) {
         ModBlocks.BLOCKS.register(modBus);
         ModItems.ITEMS.register(modBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modBus);
 
-        BigSignNetwork.register();
+        modBus.addListener(BigSignNetwork::onRegisterPayloads);
 
         modBus.addListener(this::clientSetup);
         modBus.addListener(this::addCreative);
